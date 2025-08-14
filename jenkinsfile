@@ -9,7 +9,7 @@ pipeline {
                 dir('STUDENTAPI-REACT') {
                     sh '''
                         export NVM_DIR="$HOME/.nvm"
-                        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
                         nvm use 22
                         npm install
                         npm run build
@@ -22,12 +22,12 @@ pipeline {
         stage('Deploy Frontend to Tomcat') {
             steps {
                 sh '''
-                TOMCAT_PATH="/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43/webapps/reactstudentapi"
-                if [ -d "$TOMCAT_PATH" ]; then
-                    rm -rf "$TOMCAT_PATH"
-                fi
-                mkdir -p "$TOMCAT_PATH"
-                cp -R STUDENTAPI-REACT/dist/* "$TOMCAT_PATH/"
+                    TOMCAT_PATH="/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43/webapps/reactstudentapi"
+                    if [ -d "$TOMCAT_PATH" ]; then
+                        rm -rf "$TOMCAT_PATH"
+                    fi
+                    mkdir -p "$TOMCAT_PATH"
+                    cp -R STUDENTAPI-REACT/dist/* "$TOMCAT_PATH/"
                 '''
             }
         }
@@ -45,14 +45,14 @@ pipeline {
         stage('Deploy Backend to Tomcat') {
             steps {
                 sh '''
-                TOMCAT_PATH="/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43/webapps"
-                if [ -f "$TOMCAT_PATH/springbootstudentapi.war" ]; then
-                    rm -f "$TOMCAT_PATH/springbootstudentapi.war"
-                fi
-                if [ -d "$TOMCAT_PATH/springbootstudentapi" ]; then
-                    rm -rf "$TOMCAT_PATH/springbootstudentapi"
-                fi
-                cp STUDENTAPI-SPRINGBOOT/target/*.war "$TOMCAT_PATH/"
+                    TOMCAT_PATH="/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43/webapps"
+                    if [ -f "$TOMCAT_PATH/springbootstudentapi.war" ]; then
+                        rm -f "$TOMCAT_PATH/springbootstudentapi.war"
+                    fi
+                    if [ -d "$TOMCAT_PATH/springbootstudentapi" ]; then
+                        rm -rf "$TOMCAT_PATH/springbootstudentapi"
+                    fi
+                    cp STUDENTAPI-SPRINGBOOT/target/*.war "$TOMCAT_PATH/"
                 '''
             }
         }
