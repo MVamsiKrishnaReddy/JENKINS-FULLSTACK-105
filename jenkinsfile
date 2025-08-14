@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    stages {
+
+        // ===== FRONTEND BUILD =====
+        stage('Build Frontend') {
+            steps {
+                dir('STUDENTAPI-REACT') {
+                    sh 'npm install'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        // ===== FRONTEND DEPLOY =====
+        stage('Deploy Frontend to Tomcat') {
+            steps {
+                sh '''
+                TOMCAT_PATH="/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43/webapps/reactstudentapi"
+                if [ -d "$TOMCAT_PATH" ]; then
+                    rm -rf "$TOMCAT_PATH"
+                fi
+                mkdir -p "$TOMCAT_PATH"
+                cp -R STUDENTAPI-REACT/dist/* "$TOMCAT_PATH/"
+                '''
+            }
+        }
+
+        // ===== BACKEND BUILD =====
+        stage('Build Backend') {
+            steps {
+                dir('STUDENTAPI-SPRINGBOOT') {
+                    sh 'mvn clean package'
+                }
+            }
+        }
+
+        // ===== BACKEND DEPLOY =====
+        stage('Deploy Backend to Tomcat') {
+            steps {
+                sh '''
+                TOMCAT_PATH="/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43/webapps"
+                if [ -f "$TOMCAT_PATH/springbootstudentapi.war" ]; then
+                    rm -f "$TOMCAT_PATH/springbootstudentapi.war"
+                fi
+                if [ -d "$TOMCAT_PATH/springbootstudentapi" ]; then
+                    rm -rf "$TOMCAT_PATH/springbootstudentapi"
+                fi
+                cp STUDENTAPI-SPRINGBOOT/target/*.war "$TOMCAT_PATH/"
+                '''
+            }
+        }
+
+    }
+
+    post {
+        success {
+            echo 'Deployment Successful!'
+        }
+        failure {
+            echo 'Pipeline Failed.'
+        }
+    }
+}
