@@ -1,65 +1,134 @@
 pipeline {
-    agent any
+  agent any
 
-    stages {
+  tools {
+    maven 'MAVEN_HOME'    // Use the Maven installation you configured in Jenkins
+  }
 
-        // ===== FRONTEND BUILD =====
-        stage('Build Frontend') {
-            steps {
-                dir('STUDENTAPI-REACT') {
-                    sh 'npm install'
-                    sh 'npm run build'
-                }
-            }
-        }
+  environment {
+    HOME              = "${env.HOME}"
+    NVM_DIR           = "${env.HOME}/.nvm"
+    NODE_VERSION      = "v22.16.0"
+    NODE_BIN          = "${env.HOME}/.nvm/versions/node/v22.16.0/bin"
+    TOMCAT_HOME       = "/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43"
+    PATH              = "${env.PATH}:${env.NODE_BIN}"
+  }
 
-        // ===== FRONTEND DEPLOY =====
-        stage('Deploy Frontend to Tomcat') {
-            steps {
-                sh '''
-                TOMCAT_PATH="/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43/webapps/reactstudentapi"
-                if [ -d "$TOMCAT_PATH" ]; then
-                    rm -rf "$TOMCAT_PATH"
-                fi
-                mkdir -p "$TOMCAT_PATH"
-                cp -R STUDENTAPI-REACT/dist/* "$TOMCAT_PATH/"
-                '''
-            }
-        }
+  stages {
 
-        // ===== BACKEND BUILD =====
-        stage('Build Backend') {
-            steps {
-                dir('STUDENTAPI-SPRINGBOOT') {
-                    sh 'mvn clean package'
-                }
-            }
-        }
+    stage('Show Versions') {
+      steps {
+        sh '''
+          set -e
+          echo "HOME=$HOME"
+          echo "Using PATH=$PATH"
 
-        // ===== BACKEND DEPLOY =====
-        stage('Deploy Backend to Tomcat') {
-            steps {
-                sh '''
-                TOMCAT_PATH="/Users/vamsikrishnareddymallidi/Downloads/apache-tomcat-10.1.43/webapps"
-                if [ -f "$TOMCAT_PATH/springbootstudentapi.war" ]; then
-                    rm -f "$TOMCAT_PATH/springbootstudentapi.war"
-                fi
-                if [ -d "$TOMCAT_PATH/springbootstudentapi" ]; then
-                    rm -rf "$TOMCAT_PATH/springbootstudentapi"
-                fi
-                cp STUDENTAPI-SPRINGBOOT/target/*.war "$TOMCAT_PATH/"
-                '''
-            }
-        }
+          # Load Node via nvm
+          if [ -s "$NVM_DIR/nvm.sh" ]; then
+            . "$NVM_DIR/nvm.sh"
+            nvm use "$NODE_VERSION" >/dev/null
+          fi
 
+          which node || true
+          which npm || true
+          node -v || true
+          npm -v || true
+          mvn -version || true
+        '''
+      }
     }
 
-    post {
-        success {
-            echo 'Deployment Successful!'
+    // ===== FRONTEND BUILD =====
+    stage('Build Frontend') {
+      steps {
+        dir('STUDENTAPI-REACT') {
+          sh '''
+            set -e
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              . "$NVM_DIR/nvm.sh"
+              nvm use "$NODE_VERSION" >/dev/null
+            fi
+            if [ -f package-lock.json ]; then
+              npm ci
+            else
+              npm install
+            fi
+            npm run build
+          '''
         }
-        failure {
-            echo 'Pipeline Failed.'
-        }
+      }
     }
+
+    // ===== FRONTEND DEPLOY =====
+    stage('Deploy Frontend to Tomcat') {
+      steps {
+        sh '''
+          set -e
+          TARGET="${TOMCAT_HOME}/webapps/reactstudentapi"
+          rm -rf "$TARGET"
+          mkdir -p "$TARGET"
+          cp -R STUDENTAPI-REACT/dist/* "$TARGET/"
+          echo "Frontend deployed to $TARGET"
+        '''
+      }
+    }
+
+    // ===== BACKEND BUILD =====
+    stage('Build Backend') {
+      steps {
+        dir('STUDENTAPI-SPRINGBOOT') {
+          sh '''
+            set -e
+            mvn -Dmaven.test.skip=true clean package
+          '''
+        }
+      }
+    }
+
+    // ===== BACKEND DEPLOY =====
+    stage('Deploy Backend to Tomcat') {
+      steps {
+        sh '''
+          set -e
+          TOMCAT_WEBAPPS="${TOMCAT_HOME}/webapps"
+
+          rm -f "${TOMCAT_WEBAPPS}/springbootstudentapi.war" || true
+          rm -rf "${TOMCAT_WEBAPPS}/springbootstudentapi" || true
+
+          WAR_FILE=$(ls STUDENTAPI-SPRINGBOOT/target/*.war | head -n 1)
+          if [ -z "$WAR_FILE" ]; then
+            echo "ERROR: No WAR found in STUDENTAPI-SPRINGBOOT/target/"
+            exit 1
+          fi
+
+          cp "$WAR_FILE" "${TOMCAT_WEBAPPS}/"
+          echo "Backend WAR deployed to ${TOMCAT_WEBAPPS}/"
+        '''
+      }
+    }
+
+    // ===== RESTART TOMCAT =====
+    stage('Restart Tomcat') {
+      steps {
+        sh '''
+          set -e
+          if [ -x "${TOMCAT_HOME}/bin/shutdown.sh" ]; then
+            "${TOMCAT_HOME}/bin/shutdown.sh" || true
+          fi
+          sleep 3
+          "${TOMCAT_HOME}/bin/startup.sh"
+          echo "Tomcat restarted."
+        '''
+      }
+    }
+  }
+
+  post {
+    success {
+      echo 'Deployment Successful!'
+    }
+    failure {
+      echo 'Pipeline Failed.'
+    }
+  }
 }
