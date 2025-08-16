@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   tools {
-    maven 'MAVEN_HOME'    // Use the Maven installation you configured in Jenkins
+    maven 'MAVEN'    // Use the Maven installation you configured in Jenkins
   }
 
   environment {
